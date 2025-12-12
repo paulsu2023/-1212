@@ -1,14 +1,35 @@
 
+
 import { GoogleGenAI, GenerateContentResponse, Type, Modality, Part, FunctionDeclaration } from "@google/genai";
 import { SmartSequenceItem, VideoGenerationMode } from "../types";
 
 // --- Initialization ---
 
+export const getGeminiKey = (): string | null => {
+    return localStorage.getItem('gemini_api_key') || process.env.API_KEY || null;
+};
+
 const getClient = () => {
-  if (!process.env.API_KEY) {
-    throw new Error("API Key is missing. Please select a paid API key via the Google AI Studio button.");
+  const key = getGeminiKey();
+  if (!key) {
+    throw new Error("API Key is missing. Please configure it in Settings.");
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey: key });
+};
+
+export const verifyGeminiKey = async (apiKey: string): Promise<boolean> => {
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        // Lightweight call to verify key
+        await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [{ text: 'ping' }] },
+        });
+        return true;
+    } catch (e) {
+        console.warn("Gemini API Key Verification Failed:", e);
+        return false;
+    }
 };
 
 const getPolloKey = () => {
@@ -501,7 +522,9 @@ export const generateVideo = async (
                 if (vid?.uri) {
                     // Fetch to hydrate (and check access) - usually frontend needs key appended
                     // But here we just return the URI. Frontend appends key.
-                    const fullUri = `${vid.uri}&key=${process.env.API_KEY}`;
+                    // Important: For custom keys, we must append it.
+                    const key = getGeminiKey();
+                    const fullUri = `${vid.uri}&key=${key}`;
                     validUris.push(fullUri);
                     if (!primaryMetadata) primaryMetadata = vid;
                 }
